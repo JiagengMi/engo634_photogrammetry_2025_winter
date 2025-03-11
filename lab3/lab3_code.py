@@ -353,6 +353,7 @@ print('correct fiducial points coords in image 28', fiducial_corrected)
 # Lab3: To perform relative orientation of a stereo pair and estimate 3D model coordinates as part of the overarching aim of labs 2-5 of photogrammetric restitution.
 from scipy.optimize import least_squares
 
+
 # Plot tie points's coordinates
 def points_coordinates(points, number, point_size=15):
     points = np.array(points)
@@ -371,7 +372,7 @@ def points_coordinates(points, number, point_size=15):
     ax.set_title(f'Image {number} Point Residual Plot')
     ax.set_aspect('equal')
     
-    plt.savefig(f'F:\\04-UoC master\\OneDrive - University of Calgary\\02-UoC\\25winter_ENGO634_Principal of Photogrammetry\\lab3\\tie_points_{number}.png')
+    plt.savefig(f'F:\\04-UoC master\OneDrive - University of Calgary\\02-UoC\\25winter_ENGO634_Principal of Photogrammetry\lab_code\lab3\\tie_points_{number}.png')
     # plt.show()
 
     
@@ -384,28 +385,28 @@ print(tie_plot_28)
 
 # Function to compute the rotation matrix from omega, phi, kappa
 def compute_rotation_matrix(omega, phi, kappa):
-    #omega, phi, kappa = np.radians([omega, phi, kappa])  # Convert to radians
+    omega, phi, kappa = np.radians([omega, phi, kappa])  # Convert to radians
     R_omega = np.array([
         [1, 0, 0],
-        [0, np.cos(omega), -np.sin(omega)],
-        [0, np.sin(omega), np.cos(omega)]
+        [0, np.cos(omega), np.sin(omega)],
+        [0, -np.sin(omega), np.cos(omega)]
     ])
     R_phi = np.array([
-        [np.cos(phi), 0, np.sin(phi)],
+        [np.cos(phi), 0, -np.sin(phi)],
         [0, 1, 0],
-        [-np.sin(phi), 0, np.cos(phi)]
+        [np.sin(phi), 0, np.cos(phi)]
     ])
     R_kappa = np.array([
-        [np.cos(kappa), -np.sin(kappa), 0],
-        [np.sin(kappa), np.cos(kappa), 0],
+        [np.cos(kappa), np.sin(kappa), 0],
+        [-np.sin(kappa), np.cos(kappa), 0],
         [0, 0, 1]
     ])
-    return R_omega @ R_phi @ R_kappa  # Combined rotation matrix
+    return R_kappa @ R_phi @ R_omega  # Combined rotation matrix
 
-# Calculate relative orientation parameters
+# Calculate relative orientation parameters (I have no idea why the coefficient matrix is wrong)
+
 def relative_orientation(left_points, right_points, bx, c, initial_guess):
-    
-    
+
     # Error function (Misclosure vector)
     def error_function(params):
         by, bz, omega, phi, kappa = params
@@ -413,6 +414,14 @@ def relative_orientation(left_points, right_points, bx, c, initial_guess):
         M_0 = compute_rotation_matrix(omega, phi, kappa)  # Compute rotation matrix
         
         misclosure = []
+        # for (x1, y1), (x2, y2) in zip(left_points, right_points):
+        #     v1 = np.array([x1, y1, -c])
+        #     v2 = np.array([x2, y2, -c])
+        #     v2_rot = M_0.T @ v2
+        #     cross = np.cross(v1, v2_rot)
+        #     residual = bx * cross[0] + by * cross[1] + bz * cross[2]
+        #     misclosure.append(residual)
+        # return np.array(misclosure)
         
         for i in range(len(left_points)):
             xL, yL = left_points[i]
@@ -422,7 +431,7 @@ def relative_orientation(left_points, right_points, bx, c, initial_guess):
             right_vector = np.array([xR, yR, -c])
             
             # Apply rotation to right vector
-            transformed_point = M_0 @ right_vector + np.array([bx, by, bz])
+            transformed_point = M_0.T @ right_vector + np.array([bx, by, bz])
             
             # Construct delta (Misclosure vector)
             delta_value = np.array([[bx, by, bz], [xL, yL, -c], [transformed_point[0], transformed_point[1], transformed_point[2]]])
@@ -433,37 +442,118 @@ def relative_orientation(left_points, right_points, bx, c, initial_guess):
         return misclosure
     
     # Use scipy's least_squares to minimize the error function
-    result = least_squares(error_function, initial_guess, method='lm', jac='3-point')
+    result = least_squares(error_function, initial_guess)
     
     # The optimal parameters
     bY_best, bZ_best, omega_best, phi_best, kappa_best = result.x
-    omega_best_d, phi_best_d, kappa_best_d = np.degrees([omega_best, phi_best, kappa_best])
+    # omega_best_d, phi_best_d, kappa_best_d = np.degrees([omega_best, phi_best, kappa_best])
     
     # Put them into a pd frame
-    d = {'': ['by', 'bz', 'omega(degree)', 'phi(degree)', 'kappa(degree)'],'parameters':[bY_best, bZ_best, omega_best_d, phi_best_d, kappa_best_d]}
-    df_params = pd.DataFrame(data = d)
+    params = [bY_best, bZ_best, omega_best, phi_best, kappa_best]
+    df_params = pd.DataFrame([params], columns=['By', 'Bz', 'Omega', 'Phi', 'Kappa'])
     
+    # (J^T J) and its inverse
+    J = result.jac
+    JTJ = J.T @ J
+    JTJ_inv = np.linalg.inv(JTJ)
+    C_x = JTJ_inv
     
-    # get the Jacobian
-    A = result.jac
-    ATA = A.T @ A
-    coefficient_matrix = np.linalg.inv(ATA)
+    # Compute correlation matrix
+    diag_std = np.sqrt(np.diag(C_x))
+    correlation_matrix = C_x / np.outer(diag_std, diag_std)
     
-    df_coefficient = pd.DataFrame({
-        'by': coefficient_matrix[0,:],
-        'bz': coefficient_matrix[1,:],
-        '𝜔': coefficient_matrix[2,:],
-        '𝜙': coefficient_matrix[3,:],
-        '𝜅': coefficient_matrix[4,:],
-    }, index = ['by', 'bz', '𝜔', '𝜙', '𝜅'])
+    C_df = pd.DataFrame(correlation_matrix, columns=['By', 'Bz', 'Omega', 'Phi', 'Kappa'], index=['By', 'Bz', 'Omega', 'Phi', 'Kappa'])
     
-    return df_params, df_coefficient
+    return df_params, C_df
 
-# 
-def convert_to_RO(bx, df_params, left_points, right_points):
+"""
+# Use params to build coefficient matrix
+def coefficient_matrix(left_points, right_points, bx, c, params):
+    def compute_residual_single(By, Bz, omega, phi, kappa, xL, yL, xR, yR, Bx, c):
+        v1 = np.array([xL, yL, -c])             # Left image vector
+        v2 = np.array([xR, yR, -c])             # Right image vector
+        R  = compute_rotation_matrix(omega, phi, kappa)
+        v2_rot = R.T @ v2                         # Rotate right vector
+        cross_vec = np.cross(v1, v2_rot)        # Cross product
+        return Bx*cross_vec[0] + By*cross_vec[1] + Bz*cross_vec[2]
+
+    J = np.zeros((len(left_points), 5))
+    # Numeric differentiation step
+    epsilon = 1e-6
+    # Params
+    bY_best, bZ_best, omega_best, phi_best, kappa_best = params
+    # omega_best = np.radians(omega_best_d)
+    # phi_best   = np.radians(phi_best_d)
+    # kappa_best = np.radians(kappa_best_d)
+    
+    for i, (left, right) in enumerate(zip(left_points, right_points)):
+        xL, yL = left  # Unpacking the left point
+        xR, yR = right  # Unpacking the right point
+        
+        # 1) Compute the "base" residual at the current best parameters
+        res_0 = compute_residual_single(
+        bY_best, bZ_best, omega_best, phi_best, kappa_best,
+        xL, yL, xR, yR, bx, c
+        )
+    
+        # 2) For each parameter, add epsilon and compute partial derivative
+        # -- partial wrt By --
+        res_plus = compute_residual_single(
+        bY_best+epsilon, bZ_best, omega_best, phi_best, kappa_best,
+        xL, yL, xR, yR, bx, c
+        )
+        dDelta_dBy = (res_plus - res_0) / epsilon
+
+        # -- partial wrt Bz --
+        res_plus = compute_residual_single(
+        bY_best, bZ_best+epsilon, omega_best, phi_best, kappa_best,
+        xL, yL, xR, yR, bx, c
+        )
+        dDelta_dBz = (res_plus - res_0) / epsilon
+
+        # -- partial wrt Omega --
+        res_plus = compute_residual_single(
+        bY_best, bZ_best, omega_best+epsilon, phi_best, kappa_best,
+        xL, yL, xR, yR, bx, c
+        )
+        dDelta_dOmega = (res_plus - res_0) / epsilon
+
+        # -- partial wrt Phi --
+        res_plus = compute_residual_single(
+        bY_best, bZ_best, omega_best, phi_best+epsilon, kappa_best,
+        xL, yL, xR, yR, bx, c
+        )
+        dDelta_dPhi = (res_plus - res_0) / epsilon
+
+        # -- partial wrt Kappa --
+        res_plus = compute_residual_single(
+        bY_best, bZ_best, omega_best, phi_best, kappa_best+epsilon,
+        xL, yL, xR, yR, bx, c
+        )
+        dDelta_dKappa = (res_plus - res_0) / epsilon
+
+        # 3) Store partial derivatives in J
+        J[i] = [dDelta_dBy, dDelta_dBz, dDelta_dOmega, dDelta_dPhi, dDelta_dKappa]
+    
+    
+    # (J^T J) and its inverse
+    JTJ = J.T @ J
+    JTJ_inv = np.linalg.inv(JTJ)
+    C_x = JTJ_inv
+    
+    # Compute correlation matrix
+    diag_std = np.sqrt(np.diag(C_x))
+    correlation_matrix = C_x / np.outer(diag_std, diag_std)
+    
+    C_df = pd.DataFrame(correlation_matrix, columns=['By', 'Bz', 'Omega', 'Phi', 'Kappa'], index=['By', 'Bz', 'Omega', 'Phi', 'Kappa'])
+    
+    return C_df
+"""
+
+def convert_to_RO(bx, c, df_params, left_points, right_points):
     # Compute rotation matrix
-    bY_best, bZ_best, omega_best, phi_best, kappa_best = df_params.iloc[:,1]
-    omega_best, phi_best, kappa_best = np.deg2rad([omega_best, phi_best, kappa_best])
+    bY_best, bZ_best, omega_best, phi_best, kappa_best = df_params.iloc[0,:]
+    # omega_best, phi_best, kappa_best = np.deg2rad([omega_best, phi_best, kappa_best])
     M = compute_rotation_matrix(omega_best, phi_best, kappa_best)
     left_points = np.hstack([left_points, -c*np.ones((left_points.shape[0], 1))])
     right_points = np.hstack([right_points, -c*np.ones((right_points.shape[0], 1))])
@@ -475,7 +565,7 @@ def convert_to_RO(bx, df_params, left_points, right_points):
     pY = []
     for i in range(len(left_points)):
         xL,yL,zL = left_points[i]
-        xR,yR,zR = M @ right_points[i]
+        xR,yR,zR = M.T @ right_points[i]
         
         scale_lambda_value = (bx*zR-bZ_best*xR)/(xL*zR+c*xR)
         scale_lambda.append(scale_lambda_value)
@@ -517,19 +607,18 @@ bx = 92
 c = 153.358
 initial_guess = np.array([0,0,0,0,0])
 
-tie_params, tie_coeffient = relative_orientation(tie_27_corrected, tie_28_corrected, bx, c, initial_guess)
+tie_params, tie_cov = relative_orientation(tie_27_corrected, tie_28_corrected, bx, c, initial_guess)
 print(tie_params)
 print("\n")
-print(tie_coeffient)
-print("\n") 
-tie_points = convert_to_RO(bx, tie_params, tie_27_corrected, tie_28_corrected)
+print(tie_cov)
+tie_points = convert_to_RO(bx, c, tie_params, tie_27_corrected, tie_28_corrected)
 print(tie_points)
 
 # Convert control points and check points
-check_points = convert_to_RO(bx, tie_params, check_27_corrected, check_28_corrected)
+check_points = convert_to_RO(bx, c, tie_params, check_27_corrected, check_28_corrected)
 print(check_points)
 
-control_points = convert_to_RO(bx, tie_params, control_27_corrected, control_28_corrected)
+control_points = convert_to_RO(bx, c, tie_params, control_27_corrected, control_28_corrected)
 print(control_points)
 
 # Use lecture notes to test program
@@ -549,11 +638,10 @@ bx_test = 92
 c_test = 152.15
 initial_guess_test = np.array([0,0,0,0,0])
 
-test_params, test_coeffient = relative_orientation(left_test, right_test, bx_test, c_test, initial_guess_test)
-print(test_params)      
-print("\n") 
-print(test_coeffient) 
-print("\n")      
+test_params, test_cov = relative_orientation(left_test, right_test, bx_test, c_test, initial_guess_test)
 
-text_points = convert_to_RO(bx_test, test_params, left_test, right_test) 
+print(test_params)      
+print("\n")  
+print(test_cov)
+text_points = convert_to_RO(bx_test, c_test, test_params, left_test, right_test) 
 print(text_points)
