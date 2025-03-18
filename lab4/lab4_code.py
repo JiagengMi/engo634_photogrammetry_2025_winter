@@ -566,9 +566,29 @@ print(test_points)
 
 # Lab4: To perform absolute orientation and check point analysis as part of the overarching aim of labs 2-5 of photogrammetric restitution
 
-check_points[['X (m)','Y (m)', 'Z (m)']] = pd.DataFrame([[527.78, -375.72, 1092.00], [42.73, -412.19, 1090.82], [-399.28, -679.72, 1090.96]], index=['203', '201', '100'])
-control_points[['X (m)','Y (m)', 'Z (m)']] = pd.DataFrame([[109.70, -642.35, 1086.43], [475.55, -538.18, 1090.50], [517.62, -194.43, 1090.65], [321.09, -667.45, 1083.49], [-466.39, -542.31, 1091.55]], index=['102', '104', '105', '202', '200'])
-test_points[['X (m)','Y (m)', 'Z (m)']] = pd.DataFrame([[7350.27,4382.54,276.42], [6717.22,4626.41,280.05], [6869.09,3844.56,283.11], [6316.06,3934.63,283.03], [6172.84,3269.45,248.10], [6905.26,3279.84,266.47]], index=['30', '40', '72', '127', '112', '50'])
+check_points_copy = check_points.copy()
+control_points_copy = control_points.copy()
+test_points_copy = test_points.copy()
+
+check_points_copy[['X (m)', 'Y (m)', 'Z (m)']] = pd.DataFrame([[527.78, -375.72, 1092.00], 
+                                                               [42.73, -412.19, 1090.82], 
+                                                               [-399.28, -679.72, 1090.96]], 
+                                                              index=['203', '201', '100'])
+
+control_points_copy[['X (m)', 'Y (m)', 'Z (m)']] = pd.DataFrame([[109.70, -642.35, 1086.43], 
+                                                                [475.55, -538.18, 1090.50], 
+                                                                [517.62, -194.43, 1090.65], 
+                                                                [321.09, -667.45, 1083.49], 
+                                                                [-466.39, -542.31, 1091.55]], 
+                                                               index=['102', '104', '105', '202', '200'])
+
+test_points_copy[['X (m)', 'Y (m)', 'Z (m)']] = pd.DataFrame([[7350.27, 4382.54, 276.42], 
+                                                              [6717.22, 4626.41, 280.05], 
+                                                              [6869.09, 3844.56, 283.11], 
+                                                              [6316.06, 3934.63, 283.03], 
+                                                              [6172.84, 3269.45, 248.10], 
+                                                              [6905.26, 3279.84, 266.47]], 
+                                                             index=['30', '40', '72', '127', '112', '50'])
 
 def absolute_orientation(points):
     # Print the title
@@ -693,36 +713,36 @@ def residual(params, points):
 
 
 # Results for test data
-test_result = absolute_orientation(test_points)
-test_residual = residual(test_result, test_points)
+test_result = absolute_orientation(test_points_copy)
+test_residual = residual(test_result, test_points_copy)
 print(test_result)
 print('Residuals for test data:\n', test_residual)
 
 # Results for GCPs
 # Just use 105, 202, 200
-control_1 = control_points.loc[['105', '202', '200']]
+control_1 = control_points_copy.loc[['105', '202', '200']]
 control_result_1 = absolute_orientation(control_1)
 control_residual_1 = residual(control_result_1, control_1)
 print(control_result_1)
 print('Residuals for 3 GCPs data:\n', control_residual_1)
 
 # Use 105, 202, 200, 104
-control_2 = control_points.loc[['105', '202', '200', '104']]
+control_2 = control_points_copy.loc[['105', '202', '200', '104']]
 control_result_2 = absolute_orientation(control_2)
 control_residual_2 = residual(control_result_2, control_2)
 print(control_result_2)
 print('Residuals for 4 GCPs data:\n', control_residual_2)
 
 # Use 105, 202, 200, 102
-control_3 = control_points.loc[['105', '202', '200', '102']]
+control_3 = control_points_copy.loc[['105', '202', '200', '102']]
 control_result_3 = absolute_orientation(control_3)
 control_residual_3 = residual(control_result_3, control_3)
 print(control_result_3)
 print('Residuals for 4 GCPs data:\n', control_residual_3)
 
 # Use all of GCPs
-control_result_4 = absolute_orientation(control_points)
-control_residual_4 = residual(control_result_4, control_points)
+control_result_4 = absolute_orientation(control_points_copy)
+control_residual_4 = residual(control_result_4, control_points_copy)
 print(control_result_4)
 print('Residuals for 5 GCPs data:\n', control_residual_4)
 
