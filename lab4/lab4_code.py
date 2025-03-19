@@ -667,6 +667,7 @@ def absolute_orientation(points):
     diagonal = [R[i, i] for i in range(n)]
     diagonal_reshape = np.array(diagonal).reshape(-1,3)
     df_R = pd.DataFrame(diagonal_reshape, index=points.index, columns=['x', 'y', 'z'])
+    df_R.loc['Total'] = df_R.sum()
     print("Redundancy number for each coord:\n", df_R)
     
     # Check results using trace
@@ -755,10 +756,10 @@ print('Residuals for 3 GCPs data:\n', control_residual_1)
 # print('Residuals for 4 GCPs data:\n', control_residual_3)
 
 # Use all of GCPs
-# control_4 = absolute_orientation(control_points_copy)
-# control_residual_4 = residual(control_4, control_points_copy)
-# print(control_4)
-# print('Residuals for 5 GCPs data:\n', control_residual_4)
+control_4 = absolute_orientation(control_points_copy)
+control_residual_4 = residual(control_4, control_points_copy)
+print(control_4)
+print('Residuals for 5 GCPs data:\n', control_residual_4)
 
 # Convert RO to AO
 def convert_to_AO(points, params):
