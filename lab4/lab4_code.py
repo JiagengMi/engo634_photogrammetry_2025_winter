@@ -641,12 +641,6 @@ def absolute_orientation(points):
     params = [omega, phi, kappa, scale, tx, ty, tz]
     df_params = pd.DataFrame([params], columns=['Ω (deg)', 'Φ (deg)', 'Κ (deg)', 'Λ', 'tx', 'ty', 'tz'])
     
-    # Calculate redundancy number
-    u = 7
-    n = len(points) * 3
-    r = n - u
-    print(f'Redundancy number: {r}')
-    
     # (J^T J) and its inverse
     J = result.jac
     JTJ = J.T @ J
@@ -659,6 +653,25 @@ def absolute_orientation(points):
     
     C_df = pd.DataFrame(correlation_matrix, columns=['Ω (deg)', 'Φ (deg)', 'Κ (deg)', 'Λ', 'tx', 'ty', 'tz'], index=['Ω (deg)', 'Φ (deg)', 'Κ (deg)', 'Λ', 'tx', 'ty', 'tz'])
     print('Correlation matrix:\n', C_df)
+    
+    # Calculate redundancy number
+    u = 7
+    n = len(points) * 3
+    r = n - u
+    print(f'The total redundancy number is: {r}')
+    
+    # Calculate redundancy number for each coord
+    P = np.eye(n)
+    I = np.eye(n)
+    R = I - J @ C_x @ J.T @ P
+    diagonal = [R[i, i] for i in range(n)]
+    diagonal_reshape = np.array(diagonal).reshape(-1,3)
+    df_R = pd.DataFrame(diagonal_reshape, index=points.index, columns=['x', 'y', 'z'])
+    print("Redundancy number for each coord:\n", df_R)
+    
+    # Check results using trace
+    trace_R = np.trace(R)
+    print("Check redundancy number using trace:", trace_R)
     
     # Plot GCPs
     plot_points = points[['X (mm)', 'Y (mm)']]
@@ -721,29 +734,173 @@ print('Residuals for test data:\n', test_residual)
 # Results for GCPs
 # Just use 105, 202, 200
 control_1 = control_points_copy.loc[['105', '202', '200']]
+control_check = pd.concat([control_1, check_points_copy], axis = 0)
 control_result_1 = absolute_orientation(control_1)
-control_residual_1 = residual(control_result_1, control_1)
+control_residual_1 = residual(control_result_1, control_check)
 print(control_result_1)
 print('Residuals for 3 GCPs data:\n', control_residual_1)
 
 # Use 105, 202, 200, 104
-control_2 = control_points_copy.loc[['105', '202', '200', '104']]
-control_result_2 = absolute_orientation(control_2)
-control_residual_2 = residual(control_result_2, control_2)
-print(control_result_2)
-print('Residuals for 4 GCPs data:\n', control_residual_2)
+# control_2 = control_points_copy.loc[['105', '202', '200', '104']]
+# control_result_2 = absolute_orientation(control_2)
+# control_residual_2 = residual(control_result_2, control_2)
+# print(control_result_2)
+# print('Residuals for 4 GCPs data:\n', control_residual_2)
 
 # Use 105, 202, 200, 102
-control_3 = control_points_copy.loc[['105', '202', '200', '102']]
-control_result_3 = absolute_orientation(control_3)
-control_residual_3 = residual(control_result_3, control_3)
-print(control_result_3)
-print('Residuals for 4 GCPs data:\n', control_residual_3)
+# control_3 = control_points_copy.loc[['105', '202', '200', '102']]
+# control_result_3 = absolute_orientation(control_3)
+# control_residual_3 = residual(control_result_3, control_3)
+# print(control_result_3)
+# print('Residuals for 4 GCPs data:\n', control_residual_3)
 
 # Use all of GCPs
-control_result_4 = absolute_orientation(control_points_copy)
-control_residual_4 = residual(control_result_4, control_points_copy)
-print(control_result_4)
-print('Residuals for 5 GCPs data:\n', control_residual_4)
+# control_4 = absolute_orientation(control_points_copy)
+# control_residual_4 = residual(control_4, control_points_copy)
+# print(control_4)
+# print('Residuals for 5 GCPs data:\n', control_residual_4)
 
+# Convert RO to AO
+def convert_to_AO(points, params):
+    points = points.iloc[:, -3:]
+    points_arr = np.array(points)
 
+    x_m = points_arr[:,0]
+    y_m = points_arr[:,1]
+    z_m = points_arr[:,2]
+
+    omega, phi, kappa, scale, tx, ty, tz = params.iloc[0]
+    M = compute_rotation_matrix(omega, phi, kappa)
+
+    x_o = []
+    y_o = []
+    z_o = []
+
+    for i in range(len(points)):
+        x_o.append(scale * (M[0, 0] * x_m[i] + M[0, 1] * y_m[i] + M[0, 2] * z_m[i]) + tx)
+        y_o.append(scale * (M[1, 0] * x_m[i] + M[1, 1] * y_m[i] + M[1, 2] * z_m[i]) + ty)
+        z_o.append(scale * (M[2, 0] * x_m[i] + M[2, 1] * y_m[i] + M[2, 2] * z_m[i]) + tz)
+
+    x_o = np.array(x_o)  # Convert to numpy arrays
+    y_o = np.array(y_o)
+    z_o = np.array(z_o)
+
+    df_o = pd.DataFrame({
+        'X (m)': x_o,
+        'Y (m)': y_o,
+        'Z (m)': z_o
+    }, index=points.index)
+
+    df_full = pd.concat([points, df_o], axis=1)
+
+    return df_full
+
+# Convert GCP, check, tie and PC
+PC_l = [0,0,0]
+by, bz, _, _, _ = tie_params.iloc[0]
+PC_r = [bx, by, bz]
+PC = pd.DataFrame({
+    'x':[PC_l[0],PC_r[0]],
+    'y':[PC_l[1],PC_r[1]],
+    'z':[PC_l[2],PC_r[2]]
+}, index=['PC_l', 'PC_r'])
+
+control_AO = convert_to_AO(control_points, control_result_1)
+print('GCPs in absolute orientation:\n', control_AO)
+
+check_AO = convert_to_AO(check_points, control_result_1)
+print('check points in absolute orientation:\n', check_AO)
+
+tie_AO = convert_to_AO(tie_points, control_result_1)
+print('tie points in absolute orientation:\n', tie_AO)
+
+PC_AO = convert_to_AO(PC, control_result_1)
+print('perspective centers in absolute orientation:\n', PC_AO)
+
+# Transform the rotation matrix and extract rotation angles
+def O_to_I_matrix(params_IM, params_MO):
+    # Make sure each line and column shows
+    np.set_printoptions(threshold=np.inf)
+    pd.set_option('display.width', None)
+    pd.set_option('display.max_colwidth', None)
+    
+    # Calculate Angles and Matrices from RO
+    _, _, omega_IM, phi_IM, kappa_IM = params_IM.iloc[0]
+    M_IM_L = np.eye(3)
+    M_IM_R = compute_rotation_matrix(omega_IM, phi_IM, kappa_IM)
+    omega_IM_L, phi_IM_L, kappa_IM_L = [0,0,0]
+    M_IM = {
+        'Left': {
+            'omega_IM_L': omega_IM_L,
+           'phi_IM_L': phi_IM_L,
+           'kappa_IM_L': kappa_IM_L,
+            'M_IM_L': [M_IM_L]  
+        },
+        'Right': {
+            'omega_IM': omega_IM,
+            'phi_IM': phi_IM,
+            'kappa_IM': kappa_IM,
+            'M_IM_R': [M_IM_R]  
+        }
+    }
+    df_IM = pd.DataFrame(M_IM)
+    print('Angles and Matrices from RO:\n', df_IM)
+    
+    # Calculate Matrix from AO and get the transpose
+    omega_MO, phi_MO, kappa_MO, _, _, _, _ = params_MO.iloc[0]
+    M_MO = compute_rotation_matrix(omega_MO, phi_MO, kappa_MO)
+    M_MO_T = M_MO.T
+    df_MO = pd.DataFrame({
+        'M_MO': [f'{M_MO[0, 0]} {M_MO[0, 1]} {M_MO[0, 2]}',
+                 f'{M_MO[1, 0]} {M_MO[1, 1]} {M_MO[1, 2]}',
+                 f'{M_MO[2, 0]} {M_MO[2, 1]} {M_MO[2, 2]}'],
+        'M_MO_T': [f'{M_MO_T[0, 0]} {M_MO_T[0, 1]} {M_MO_T[0, 2]}',
+                   f'{M_MO_T[1, 0]} {M_MO_T[1, 1]} {M_MO_T[1, 2]}',
+                   f'{M_MO_T[2, 0]} {M_MO_T[2, 1]} {M_MO_T[2, 2]}']
+    })
+    print('Matrix from AO:\n', df_MO)
+    
+    # Calculate matrix products
+    M_OI_L = M_IM_L @ M_MO_T
+    omega_L = np.rad2deg(np.atan(-(M_OI_L[2,1]/M_OI_L[2,2])))
+    phi_L = np.rad2deg(np.asin(M_OI_L[2,0]))
+    kappa_L = np.rad2deg(np.atan(-(M_OI_L[1,0]/M_OI_L[0,0])))
+    
+    M_OI_R = M_IM_R @ M_MO_T
+    omega_R = np.rad2deg(np.atan(-(M_OI_R[2,1]/M_OI_R[2,2])))
+    phi_R = np.rad2deg(np.asin(M_OI_R[2,0]))
+    kappa_R = np.rad2deg(np.atan(-(M_OI_R[1,0]/M_OI_R[0,0])))
+    
+    df_OI = pd.DataFrame({
+        'M_OI_L': [f'{M_OI_L[0, 0]} {M_OI_L[0, 1]} {M_OI_L[0, 2]}',
+                   f'{M_OI_L[1, 0]} {M_OI_L[1, 1]} {M_OI_L[1, 2]}',
+                   f'{M_OI_L[2, 0]} {M_OI_L[2, 1]} {M_OI_L[2, 2]}'],
+        'M_OI_R': [f'{M_OI_R[0, 0]} {M_OI_R[0, 1]} {M_OI_R[0, 2]}',
+                   f'{M_OI_R[1, 0]} {M_OI_R[1, 1]} {M_OI_R[1, 2]}',
+                   f'{M_OI_R[2, 0]} {M_OI_R[2, 1]} {M_OI_R[2, 2]}']
+    })
+    print('Resultant matrix products:\n', df_OI)
+    
+    M_OI = {
+        'Left': {
+            'omega_OI_L (deg)': omega_L,
+           'phi_OI_L (deg)': phi_L,
+           'kappa_OI_L (deg)': kappa_L,
+        },
+        'Right': {
+            'omega_OI_R (deg)': omega_R,
+            'phi_OI_R (deg)': phi_R,
+            'kappa_OI_R (deg)': kappa_R,
+        }
+    }
+    
+    df_Angle = pd.DataFrame(M_OI)
+    print('Extracted Angles:\n', df_Angle)
+    
+# For test data
+test_matrix = O_to_I_matrix(test_params, test_result)
+print(test_matrix)
+
+# For lab data
+lab_matrix = O_to_I_matrix(tie_params, control_result_1)
+print(lab_matrix)
