@@ -818,6 +818,22 @@ print('tie points in absolute orientation:\n', tie_AO)
 PC_AO = convert_to_AO(PC, control_result_1)
 print('perspective centers in absolute orientation:\n', PC_AO)
 
+# Convert Test data
+PC_l_test = [0,0,0]
+by_test, bz_test, _, _, _ = test_params.iloc[0]
+PC_r_test = [bx_test, by_test, bz_test]
+PC_test = pd.DataFrame({
+    'x':[PC_l_test[0],PC_r_test[0]],
+    'y':[PC_l_test[1],PC_r_test[1]],
+    'z':[PC_l_test[2],PC_r_test[2]]
+}, index=['PC_l', 'PC_r'])
+
+test_AO = convert_to_AO(test_points, test_result)
+print('test points in absolute orientation:\n', test_AO)
+PC_test_AO = convert_to_AO(PC_test, test_result)
+print('test PC in absolute orientation:\n', PC_test_AO)
+
+
 # Transform the rotation matrix and extract rotation angles
 def O_to_I_matrix(params_IM, params_MO):
     # Make sure each line and column shows
