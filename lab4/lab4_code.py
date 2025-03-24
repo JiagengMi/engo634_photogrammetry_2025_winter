@@ -734,12 +734,12 @@ print('Residuals for test data:\n', test_residual)
 
 # Results for GCPs
 # Just use 105, 202, 200
-control_1 = control_points_copy.loc[['105', '202', '200']]
-control_check = pd.concat([control_1, check_points_copy], axis = 0)
-control_result_1 = absolute_orientation(control_1)
-control_residual_1 = residual(control_result_1, control_check)
-print(control_result_1)
-print('Residuals for 3 GCPs data:\n', control_residual_1)
+# control_1 = control_points_copy.loc[['105', '202', '200']]
+# control_check = pd.concat([control_1, check_points_copy], axis = 0)
+# control_result_1 = absolute_orientation(control_1)
+# control_residual_1 = residual(control_result_1, control_check)
+# print(control_result_1)
+# print('Residuals for 3 GCPs data:\n', control_residual_1)
 
 # Use 105, 202, 200, 104
 # control_2 = control_points_copy.loc[['105', '202', '200', '104']]
@@ -756,10 +756,13 @@ print('Residuals for 3 GCPs data:\n', control_residual_1)
 # print('Residuals for 4 GCPs data:\n', control_residual_3)
 
 # Use all of GCPs
-control_4 = absolute_orientation(control_points_copy)
-control_residual_4 = residual(control_4, control_points_copy)
-print(control_4)
-print('Residuals for 5 GCPs data:\n', control_residual_4)
+control_result_4 = absolute_orientation(control_points_copy)
+control_check = pd.concat([control_points_copy, check_points_copy], axis = 0)
+control_residual_4 = residual(control_result_4, control_check)
+control_residual_5 = residual(control_result_4, check_points_copy)
+print(control_result_4)
+print('Residuals for 5 GCPs and check points:\n', control_residual_4)
+print('Residuals for check points:\n', control_residual_5)
 
 # Convert RO to AO
 def convert_to_AO(points, params):
@@ -806,16 +809,16 @@ PC = pd.DataFrame({
     'z':[PC_l[2],PC_r[2]]
 }, index=['PC_l', 'PC_r'])
 
-control_AO = convert_to_AO(control_points, control_result_1)
+control_AO = convert_to_AO(control_points, control_result_4)
 print('GCPs in absolute orientation:\n', control_AO)
 
-check_AO = convert_to_AO(check_points, control_result_1)
+check_AO = convert_to_AO(check_points, control_result_4)
 print('check points in absolute orientation:\n', check_AO)
 
-tie_AO = convert_to_AO(tie_points, control_result_1)
+tie_AO = convert_to_AO(tie_points, control_result_4)
 print('tie points in absolute orientation:\n', tie_AO)
 
-PC_AO = convert_to_AO(PC, control_result_1)
+PC_AO = convert_to_AO(PC, control_result_4)
 print('perspective centers in absolute orientation:\n', PC_AO)
 
 # Convert Test data
@@ -919,5 +922,5 @@ test_matrix = O_to_I_matrix(test_params, test_result)
 print(test_matrix)
 
 # For lab data
-lab_matrix = O_to_I_matrix(tie_params, control_result_1)
+lab_matrix = O_to_I_matrix(tie_params, control_result_4)
 print(lab_matrix)
