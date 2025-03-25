@@ -3,6 +3,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 from scipy.optimize import least_squares
 import inspect
+from mpl_toolkits.mplot3d import Axes3D
 
 # Lab2: To perform image point measurement, interior orientation and image point refinement for a pair of images as part of the overarching aim of labs 2-5 of photogrammetric restitution
 
@@ -590,6 +591,22 @@ test_points_copy[['X (m)', 'Y (m)', 'Z (m)']] = pd.DataFrame([[7350.27, 4382.54,
                                                               [6905.26, 3279.84, 266.47]], 
                                                              index=['30', '40', '72', '127', '112', '50'])
 
+def plot_3d_points(points):
+    x = points.iloc[:, 0]  
+    y = points.iloc[:, 1]  
+    z = points.iloc[:, 2]  
+
+    fig = plt.figure()
+    ax = fig.add_subplot(111, projection='3d')
+
+    ax.scatter(x, y, z)
+
+    ax.set_xlabel('X Label')
+    ax.set_ylabel('Y Label')
+    ax.set_zlabel('Z Label')
+
+    plt.show()
+
 def absolute_orientation(points):
     # Print the title
     frame = inspect.currentframe()
@@ -676,10 +693,11 @@ def absolute_orientation(points):
     
     # Plot GCPs
     plot_points = points[['X (mm)', 'Y (mm)']]
-
+    plot_points_3d = points[['X (mm)', 'Y (mm)', 'Z (mm)']]
     plot = points_coordinates(plot_points, len(points))
+    plot_3d = plot_3d_points(plot_points_3d)
     print(plot)
-    
+    print(plot_3d)
     return df_params
 
 def residual(params, points):
@@ -738,8 +756,11 @@ print('Residuals for test data:\n', test_residual)
 # control_check = pd.concat([control_1, check_points_copy], axis = 0)
 # control_result_1 = absolute_orientation(control_1)
 # control_residual_1 = residual(control_result_1, control_check)
+# check_control = pd.concat([control_points_copy.loc[['102', '104']], check_points_copy], axis = 0)
+# control_residual_5check = residual(control_result_1, check_control)
 # print(control_result_1)
 # print('Residuals for 3 GCPs data:\n', control_residual_1)
+# print('Residuals for check points:\n', control_residual_5check)
 
 # Use 105, 202, 200, 104
 # control_2 = control_points_copy.loc[['105', '202', '200', '104']]
