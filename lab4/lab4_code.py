@@ -318,10 +318,12 @@ def systematic_error(transformed_points, principal_offset, radial_distortion, de
     # add atmospheric refraction
     if atmospheric_refraction is not None:
         H, h = atmospheric_refraction
+        H= H/1000
+        h= h/1000
         c = 153.358
-        K = 2410 * H / (H**2 - 6 * H + 250) - 2410 * h / (h**2 - 6 * h + 250) * (h / H)
-        x_atm = x_adjusted * K * (1 + r**2 / c**2) /1000
-        y_atm = y_adjusted * K * (1 + r**2 / c**2) /1000
+        K = (2410 * H / (H**2 - 6 * H + 250) - 2410 * h / (h**2 - 6 * h + 250) * (h / H)) * 10e-6
+        x_atm = x_adjusted * K * (1 + r**2 / c**2)
+        y_atm = y_adjusted * K * (1 + r**2 / c**2)
     else:
         # If atmospheric_refraction is not provided, skip atmospheric refraction correction
         x_atm = 0
