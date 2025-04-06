@@ -1140,9 +1140,18 @@ def resection(points, sigma, c, initials, tolerance):
 
     Args:
         points (_dataframe_): _columns from left to right are xy(mm) of image points and xyz(m) of GCPs_
-        sigma (_number or list_): _if it's number, apply stochastic model; if it's list, build a new P matrix_
+        sigma (_number or list_): _if it's number, apply stochastic model; if it's list, build a new P matrix, unit is mm_
         c (_number_): _focal length of camera in mm_
     """
+    
+    # Print the title
+    frame = inspect.currentframe()
+    caller_locals = frame.f_back.f_locals  # Get the local variables from the caller's frame
+    for var_name, var_value in caller_locals.items():
+        if var_value is points:  # Match the value passed with the name
+            print(f"Results for {var_name}:\n")
+            break
+    
     # Observations
     x = np.array(points.iloc[:, 0])
     y = np.array(points.iloc[:, 1])
@@ -1162,104 +1171,114 @@ def resection(points, sigma, c, initials, tolerance):
             P[2*i+1, 2*i+1] = sigma[1]
     else:
         P = 1/(sigma**2) * P
-    
+        
     # Set iteration loop
     for i in range(len(x)):
-            # Set up design matrix and misclosure matrix
-            A = np.zeros((2 * len(x), 6))
-            w = np.zeros(2 * len(x))
+        # Set up design matrix and misclosure matrix
+        A = np.zeros((2 * len(x), 6))
+        w = np.zeros(2 * len(x))
+        
+        # Rotation matrix
+        R = compute_rotation_matrix(omega0, phi0, kappa0)
+        omega, phi, kappa = np.radians([omega0, phi0, kappa0])  # Convert to radians
+        
+        # Fill A and w
+        for j in range(len(x)):
+            U = R[0,0] * (X[j] - x_c) + R[0,1] * (Y[j] - y_c) + R[0,2] * (Z[j] - z_c)
+            V = R[1,0] * (X[j] - x_c) + R[1,1] * (Y[j] - y_c) + R[1,2] * (Z[j] - z_c)
+            W = R[2,0] * (X[j] - x_c) + R[2,1] * (Y[j] - y_c) + R[2,2] * (Z[j] - z_c)
             
-            # Rotation matrix
-            R = compute_rotation_matrix(omega0, phi0, kappa0)
-            omega, phi, kappa = np.radians([omega0, phi0, kappa0])  # Convert to radians
+            w[2*j] =  - c * U / W - x[j]
+            w[2*j+1] =  - c * V / W - y[j]
             
-            # Fill A and w
-            for j in range(len(x)):
-                U = R[0,0] * (X[j] - x_c) + R[0,1] * (Y[j] - y_c) + R[0,2] * (Z[j] - z_c)
-                V = R[1,0] * (X[j] - x_c) + R[1,1] * (Y[j] - y_c) + R[1,2] * (Z[j] - z_c)
-                W = R[2,0] * (X[j] - x_c) + R[2,1] * (Y[j] - y_c) + R[2,2] * (Z[j] - z_c)
-                
-                w[2*j] = -c * U / W - x[j]
-                w[2*j+1] = -c * V / W - y[j]
-                
-                A[2*j,0] = - c * (U * R[2,0] - W * R[0,0]) / W**2 # xc
-                A[2*j,1] = - c * (U * R[2,1] - W * R[0,1]) / W**2 # yc
-                A[2*j,2] = - c * (U * R[2,2] - W * R[0,2]) / W**2 # zc
-                A[2*j,3] = - c * ((Y[j] - y_c) * (U * R[2,2] - W * R[0,2]) - (Z[j] - z_c) * (U * R[2,1] - W * R[0,1])) / W**2 # omega
-                A[2*j,4] = - c * ((X[j] - x_c) * (- W * np.sin(phi) * np.cos(kappa) - U * np.cos(phi)) + 
-                                  (Y[j] - y_c) * (W * np.sin(omega) * np.cos(phi) * np.cos(kappa) - U * np.sin(omega) * np.sin(phi)) + 
-                                  (Z[j] - z_c) * (- W * np.cos(omega) * np.cos(phi) * np.cos(kappa) + U * np.cos(omega) * np.sin(phi))) / W**2 # phi
-                A[2*j,5] = - c * V / W # kappa
-                
-                
-                A[2*j+1,0] = - c * (V * R[2,0] - W * R[1,0]) / W**2
-                A[2*j+1,1] = - c * (V * R[2,1] - W * R[1,1]) / W**2
-                A[2*j+1,2] = - c * (V * R[2,2] - W * R[1,2]) / W**2
-                A[2*j+1,3] = - c * ((Y[j] - y_c) * (V * R[2,2] - W * R[1,2]) - (Z[j] - z_c) * (V * R[2,1] - W * R[1,1])) / W**2 # omega
-                A[2*j+1,4] = - c * ((X[j] - x_c) * (W * np.sin(phi) * np.sin(kappa) - V * np.cos(phi)) + 
-                                  (Y[j] - y_c) * (- W * np.sin(omega) * np.cos(phi) * np.sin(kappa) - V * np.sin(omega) * np.sin(phi)) + 
-                                  (Z[j] - z_c) * (W * np.cos(omega) * np.cos(phi) * np.cos(kappa) + V * np.cos(omega) * np.sin(phi))) / W**2 #phi
-                A[2*j+1,5] = - c * U / W # kappa
-            
-            # print(P)  
-            H = A.T @ P @ A
-            g = A.T @ P @ w
-            C = np.linalg.inv(H)
-            delta = -C @ g
+            A[2*j,0] = - c * (U * R[2,0] - W * R[0,0]) / W**2 # xc
+            A[2*j,1] = - c * (U * R[2,1] - W * R[0,1]) / W**2 # yc
+            A[2*j,2] = - c * (U * R[2,2] - W * R[0,2]) / W**2 # zc
+            A[2*j,3] = - c * ((Y[j] - y_c) * (U * R[2,2] - W * R[0,2]) - (Z[j] - z_c) * (U * R[2,1] - W * R[0,1])) / W**2 # omega
+            A[2*j,4] = - c * ((X[j] - x_c) * (- W * np.sin(phi) * np.cos(kappa) - U * np.cos(phi)) + 
+                                (Y[j] - y_c) * (W * np.sin(omega) * np.cos(phi) * np.cos(kappa) - U * np.sin(omega) * np.sin(phi)) + 
+                                (Z[j] - z_c) * (- W * np.cos(omega) * np.cos(phi) * np.cos(kappa) + U * np.cos(omega) * np.sin(phi))) / W**2 # phi
+            A[2*j,5] = - c * V / W # kappa
             
             
-            print(f"the {i+1}th iteration:\n")
-            # Updata params
-            x_c_new = x_c + delta[0]
-            y_c_new = y_c + delta[1]
-            z_c_new = z_c + delta[2]
-            omega_new = np.rad2deg(omega + delta[3])
-            phi_new = np.rad2deg(phi + delta[4])
-            kappa_new = np.rad2deg(kappa + delta[5])
-            params_df = pd.DataFrame(
-                {'Parameters':[x_c_new, y_c_new, z_c_new, omega_new, phi_new, kappa_new],
-                'delta':delta
-                }, index=['xc (m)', 'yc (m)', 'zc (m)', 'omega (deg)', 'phi (deg)', 'kappa (deg)']
-            )
-            print('Parameters and delta:\n', params_df)
-            
-            A_df = pd.DataFrame(data=A, columns=['xc', 'yc', 'zc', 'omega', 'phi', 'kappa'])
-            w_df = pd.DataFrame(data=w, columns=['w vector (mm)'])
-            print("A matrix:\n", A_df)
-            print('w matrix:\n', w_df)
-            
-            # Compute correlation matrix
-            diag_std = np.sqrt(np.diag(C))
-            correlation_matrix = C / np.outer(diag_std, diag_std)
-            C_df = pd.DataFrame(correlation_matrix, columns=['xc', 'yc', 'zc', 'omega', 'phi', 'kappa'], index=['xc', 'yc', 'zc', 'omega', 'phi', 'kappa'])
-            print('Correlation matrix:\n', C_df)
-            
-            # Compute redundancy number
-            redundancy = (i+1) * 2 - 6
-            residual = w.reshape(4,2)
-            RMSE_x = np.sqrt((residual[:,0] ** 2).mean())
-            RMSE_y = np.sqrt((residual[:,1] ** 2).mean())
-            if redundancy != 0:
-                varFactor = 1 / redundancy * np.sum(w**2)
-            else:
-                varFactor = np.nan
-            other_df = pd.DataFrame(data=[RMSE_x, RMSE_y, redundancy, varFactor], index=['RMSE_x (mm)', 'RMSE_y (mm)', 'Redundancy', 'Variance factor'])
-            print('Other quantities:\n', other_df)
-            
-            
-            # Check tolerance
-            if abs(x_c_new - x_c) < tol_coords and abs(y_c_new - y_c) < tol_coords and abs(z_c_new - z_c) < tol_coords and abs(omega_new - omega0) < tol_tilt and abs(phi_new - phi0) < tol_tilt and abs(kappa_new - kappa0) < tol_k:
-                break
-            
-            x_c, y_c, z_c, omega0, phi0, kappa0 = x_c_new, y_c_new, z_c_new, omega_new, phi_new, kappa_new
+            A[2*j+1,0] = - c * (V * R[2,0] - W * R[1,0]) / W**2
+            A[2*j+1,1] = - c * (V * R[2,1] - W * R[1,1]) / W**2
+            A[2*j+1,2] = - c * (V * R[2,2] - W * R[1,2]) / W**2
+            A[2*j+1,3] = - c * ((Y[j] - y_c) * (V * R[2,2] - W * R[1,2]) - (Z[j] - z_c) * (V * R[2,1] - W * R[1,1])) / W**2 # omega
+            A[2*j+1,4] = - c * ((X[j] - x_c) * (W * np.sin(phi) * np.sin(kappa) - V * np.cos(phi)) + 
+                                (Y[j] - y_c) * (- W * np.sin(omega) * np.cos(phi) * np.sin(kappa) - V * np.sin(omega) * np.sin(phi)) + 
+                                (Z[j] - z_c) * (W * np.cos(omega) * np.cos(phi) * np.sin(kappa) + V * np.cos(omega) * np.sin(phi))) / W**2 #phi
+            A[2*j+1,5] = c * U / W # kappa
+        
+        # print(P)  
+        H = A.T @ P @ A
+        g = A.T @ P @ w
+        C = np.linalg.inv(H)
+        delta = -C @ g
+        
+        
+        print(f"the {i+1}th iteration:\n")
+        # Updata params
+        x_c_new = x_c + delta[0]
+        y_c_new = y_c + delta[1]
+        z_c_new = z_c + delta[2]
+        omega_new = np.rad2deg(omega + delta[3])
+        phi_new = np.rad2deg(phi + delta[4])
+        kappa_new = np.rad2deg(kappa + delta[5])
+        params_df = pd.DataFrame(
+            {'Parameters':[x_c_new, y_c_new, z_c_new, omega_new, phi_new, kappa_new],
+            'delta':delta
+            }, index=['xc (m)', 'yc (m)', 'zc (m)', 'omega (deg)', 'phi (deg)', 'kappa (deg)']
+        )
+        print('Parameters and delta:\n', params_df)
+        
+        A_df = pd.DataFrame(data=A, columns=['xc', 'yc', 'zc', 'omega', 'phi', 'kappa'])
+        w_df = pd.DataFrame(data=w, columns=['w vector (mm)'])
+        print("A matrix:\n", A_df)
+        print('w matrix:\n', w_df)
+        
+        # Check tolerance
+        error_coords = np.sqrt((x_c_new - x_c)**2+(y_c_new - y_c)**2+(z_c_new - z_c)**2)
+        error_tilt = np.sqrt((omega_new - omega0)**2+(phi_new - phi0)**2)
+        if error_coords < tol_coords and error_tilt < tol_tilt and abs(kappa_new - kappa0) < tol_k:
+            break
+        
+        x_c, y_c, z_c, omega0, phi0, kappa0 = x_c_new, y_c_new, z_c_new, omega_new, phi_new, kappa_new
     
+    # Compute correlation matrix
+    diag_std = np.sqrt(np.diag(C))
+    correlation_matrix = C / np.outer(diag_std, diag_std)
+    C_df = pd.DataFrame(correlation_matrix, columns=['xc', 'yc', 'zc', 'omega', 'phi', 'kappa'], index=['xc', 'yc', 'zc', 'omega', 'phi', 'kappa'])
+    print('Correlation matrix:\n', C_df)
     
+    # Compute redundancy number
+    redundancy = 2 * len(x) - 6
+    residual = w.reshape(4,2)
+    RMSE_x = np.sqrt((residual[:,0] ** 2).mean())
+    RMSE_y = np.sqrt((residual[:,1] ** 2).mean())
+    if redundancy != 0:
+        varFactor = 1 / redundancy * np.sum(w**2)
+    else:
+        varFactor = np.nan
+    other_df = pd.DataFrame(data=[RMSE_x, RMSE_y, redundancy, varFactor], index=['RMSE_x (mm)', 'RMSE_y (mm)', 'Redundancy', 'Variance factor'])
+    print('Other quantities:\n', other_df)
+        
     params_df = pd.DataFrame(
                 {'Parameters':[x_c, y_c, z_c, omega0, phi0, kappa0]
                 }, index=['xc (m)', 'yc (m)', 'zc (m)', 'omega (deg)', 'phi (deg)', 'kappa (deg)']
             )
             
     return params_df
+
+# Compute EOPs for left image
+sigma_left = [rmse_x_27, rmse_y_27]
+left_EOPs = resection(left_Resction, sigma_left, c, left_initial, tolerance_left)
+print(left_EOPs)
+
+# Compute EOPs for right image
+sigma_right = [rmse_x_28, rmse_y_28]
+right_EOPs = resection(right_Resction, sigma_right, c, right_initial, tolerance_right)
+print(right_EOPs)
 
 # Use test data to check
 test_EOPs = resection(test_Resction, sigma_test, c_test, test_initial, tolerance_test)
