@@ -149,7 +149,7 @@ def affine_transformation_ls(comparator_coords, reseau_coords):
     print('RMSE_y:', RMSE_y)
     print(result_df)
     print(rotation_df)
-    return params, residuals_x, residuals_y
+    return params, residuals_x, residuals_y, RMSE_x, RMSE_y
 
 # Plot residuals
 def residual_plot(reseau_coords, residuals_x, residuals_y, scale_factor=1000, point_size=15):
@@ -189,7 +189,7 @@ def to_fiducial_system(params, points):
 
 # get params with image 27
 result_27 = affine_transformation_ls(fiducial_digital_27, fiducial_true)
-params1, residual_x_27, residual_y_27 = result_27
+params1, residual_x_27, residual_y_27, rmse_x_27, rmse_y_27 = result_27
 print(result_27)
 
 # get residual plot of image 27
@@ -208,7 +208,7 @@ print('fiducial points in image 27:\n', fiducial_true_27)
 
 # get params with image 28
 result_28 = affine_transformation_ls(fiducial_digital_28, fiducial_true)
-params2, residual_x_28, residual_y_28 = result_28
+params2, residual_x_28, residual_y_28, rmse_x_28, rmse_y_28 = result_28
 print(result_28)
 
 # get residual plot of image 28
@@ -1021,7 +1021,250 @@ print('Lab5: To perform single photo resection (SPR) and space intersection as p
 
 # Recall three dataframe
 # Each of them has 11 columns, xl (mm), yl (mm), xr (mm), yr (mm), pY (mm), X (mm), Y (mm), Z (mm), X (m), Y (m), Z (m)
-test_points_copy = test_points_copy
-check_points_copy = check_points_copy 
-control_points_copy = control_points_copy 
+# test_points_copy, check_points_copy, control_points_copy
 
+# Define a function to get initial values
+def initial_value(points, c):
+    """_summary_
+
+    Args:
+        points (_dataframe_): _columns from left to right are xy(mm) of image points and xyz(m) of GCPs_
+        c (_number_): _focal length of camera in mm_
+    """
+    # Get data from points
+    x = points.iloc[:, 0]
+    x_arr = np.array(x)
+    y = points.iloc[:, 1]
+    y_arr = np.array(y)
+    X = points.iloc[:, 2]
+    X_arr = np.array(X)
+    Y = points.iloc[:, 3]
+    Y_arr = np.array(Y)
+    Z = points.iloc[:, 4]
+    Z_arr = np.array(Z)
+    print(points)
+    # set up design matrix A and observation vector l
+    A = np.zeros((2 * len(x), 4))
+    l = np.zeros(2 * len(x))
+    
+    # fill A and l
+    for i in range(len(x)):
+        A[2*i, 0] = x.iloc[i] / 1000 # a
+        A[2*i, 1] = -y.iloc[i] / 1000  # b
+        A[2*i, 2] = 1  # dx
+        A[2*i, 3] = 0  # dy
+        
+        A[2*i+1, 0] = y.iloc[i] / 1000  # a
+        A[2*i+1, 1] = x.iloc[i] / 1000  # b
+        A[2*i+1, 2] = 0        # dx
+        A[2*i+1, 3] = 1        # dy
+        
+        l[2*i] = X.iloc[i]
+        l[2*i+1] = Y.iloc[i]
+        
+    A_T_A = A.T @ A
+    A_T_l = A.T @ l
+    A_T_A_inv = np.linalg.inv(A_T_A)
+        
+    params = A_T_A_inv @ A_T_l
+    a, b, dx, dy = params
+    k = np.atan(b/a)
+    k = np.rad2deg(k)
+    x0 = dx
+    y0 = dy
+    scale = np.sqrt(a**2 + b**2)
+    z0 = c / 1000 * scale + np.average(Z_arr)
+    
+    initial_values = [x0, y0, z0, 0, 0, k]
+    params_names = ['x', 'y', 'z', 'omega', 'phi', 'kappa']
+    result_df = pd.DataFrame(initial_values, index = params_names, columns=['Value'])
+    
+    return result_df, scale
+
+# Get Initial values for left image
+left_Resction = control_points_copy.loc[['104', '105', '202', '200'], ['xl (mm)', 'yl (mm)', 'X (m)', 'Y (m)', 'Z (m)']]
+left_initial, scale_left = initial_value(left_Resction, c)
+print("Initial values for left image resction is:\n", left_initial)
+
+# Get Initial values for right image
+right_Resction = control_points_copy.loc[['104', '105', '202', '200'], ['xr (mm)', 'yr (mm)', 'X (m)', 'Y (m)', 'Z (m)']]
+right_initial, scale_right = initial_value(right_Resction, c)
+print("Initial values for left image resction is:\n", right_initial)
+
+# Get Initial values for test data
+test_Resction = test_points_copy.loc[['30', '40', '50', '112'], ['xl (mm)', 'yl (mm)', 'X (m)', 'Y (m)', 'Z (m)']]
+test_initial, scale_test = initial_value(test_Resction, c_test)
+print("Initial values for test resction is:\n", test_initial)
+
+# Define a function to get tolerance
+def tolerance(sigma, scale, side_length_x, side_length_y, c):
+    """_summary_
+
+    Args:
+        sigma (_float_): _RMSE x or RMSE y or half of pixel in mm_
+        scale (_float_): _convert image coords in m to object coords in m_
+        side_length_x (_type_): _the length of image in mm_
+        side_length_y (_type_): _the length of image in mm_
+    """
+    Tol_coords = scale * sigma / 1000 / 10
+    Tol_tilt = sigma / 10 / c
+    Tol_tilt = np.rad2deg(Tol_tilt)
+    r_max = np.sqrt(side_length_x ** 2 + side_length_y ** 2) / 2
+    Tol_k = sigma/(10*r_max)
+    Tol_k = np.rad2deg(Tol_k)
+    data = [Tol_coords, Tol_tilt, Tol_k]
+    df = pd.DataFrame(data=data, index=['Tol_coords(m)', 'Tol_tilt(deg)', 'Tol_k(deg)'], columns=['Value'])
+    
+    return df
+
+# Get tolerances for left image
+side_length_x = 212
+side_length_y = 212
+tolerance_left = tolerance(rmse_x_27, scale_left, side_length_x, side_length_y, c)
+print("Initial values for test resction is:\n", tolerance_left)
+
+# Get tolerances for right image
+tolerance_right = tolerance(rmse_x_28, scale_right, side_length_x, side_length_y, c)
+print(tolerance_right)
+
+# Get tolerances for test data
+sigma_test = 0.015 # unit is mm
+side_length_x_test = 229 # unit is mm
+side_length_y_test = 229
+tolerance_test = tolerance(sigma_test, scale_test, side_length_x_test, side_length_y_test, c_test)
+print(tolerance_test)
+
+# Define a function to calculate EOPs
+def resection(points, sigma, c, initials, tolerance):
+    """_summary_
+
+    Args:
+        points (_dataframe_): _columns from left to right are xy(mm) of image points and xyz(m) of GCPs_
+        sigma (_number or list_): _if it's number, apply stochastic model; if it's list, build a new P matrix_
+        c (_number_): _focal length of camera in mm_
+    """
+    # Observations
+    x = np.array(points.iloc[:, 0])
+    y = np.array(points.iloc[:, 1])
+    X = np.array(points.iloc[:, 2])
+    Y = np.array(points.iloc[:, 3])
+    Z = np.array(points.iloc[:, 4])
+    
+    # Initial values
+    x_c, y_c, z_c, omega0, phi0, kappa0 = initials.iloc[:,0]
+    tol_coords, tol_tilt, tol_k = tolerance.iloc[:,0]
+    
+    # Set weight matrix P
+    P = np.eye(2 * len(x))
+    if isinstance(sigma, list):
+        for i in range(len(x)):
+            P[2*i, 2*i] = sigma[0]
+            P[2*i+1, 2*i+1] = sigma[1]
+    else:
+        P = 1/(sigma**2) * P
+    
+    # Set iteration loop
+    for i in range(len(x)):
+            # Set up design matrix and misclosure matrix
+            A = np.zeros((2 * len(x), 6))
+            w = np.zeros(2 * len(x))
+            
+            # Rotation matrix
+            R = compute_rotation_matrix(omega0, phi0, kappa0)
+            omega, phi, kappa = np.radians([omega0, phi0, kappa0])  # Convert to radians
+            
+            # Fill A and w
+            for j in range(len(x)):
+                U = R[0,0] * (X[j] - x_c) + R[0,1] * (Y[j] - y_c) + R[0,2] * (Z[j] - z_c)
+                V = R[1,0] * (X[j] - x_c) + R[1,1] * (Y[j] - y_c) + R[1,2] * (Z[j] - z_c)
+                W = R[2,0] * (X[j] - x_c) + R[2,1] * (Y[j] - y_c) + R[2,2] * (Z[j] - z_c)
+                
+                w[2*j] = -c * U / W - x[j]
+                w[2*j+1] = -c * V / W - y[j]
+                
+                A[2*j,0] = - c * (U * R[2,0] - W * R[0,0]) / W**2 # xc
+                A[2*j,1] = - c * (U * R[2,1] - W * R[0,1]) / W**2 # yc
+                A[2*j,2] = - c * (U * R[2,2] - W * R[0,2]) / W**2 # zc
+                A[2*j,3] = - c * ((Y[j] - y_c) * (U * R[2,2] - W * R[0,2]) - (Z[j] - z_c) * (U * R[2,1] - W * R[0,1])) / W**2 # omega
+                A[2*j,4] = - c * ((X[j] - x_c) * (- W * np.sin(phi) * np.cos(kappa) - U * np.cos(phi)) + 
+                                  (Y[j] - y_c) * (W * np.sin(omega) * np.cos(phi) * np.cos(kappa) - U * np.sin(omega) * np.sin(phi)) + 
+                                  (Z[j] - z_c) * (- W * np.cos(omega) * np.cos(phi) * np.cos(kappa) + U * np.cos(omega) * np.sin(phi))) / W**2 # phi
+                A[2*j,5] = - c * V / W # kappa
+                
+                
+                A[2*j+1,0] = - c * (V * R[2,0] - W * R[1,0]) / W**2
+                A[2*j+1,1] = - c * (V * R[2,1] - W * R[1,1]) / W**2
+                A[2*j+1,2] = - c * (V * R[2,2] - W * R[1,2]) / W**2
+                A[2*j+1,3] = - c * ((Y[j] - y_c) * (V * R[2,2] - W * R[1,2]) - (Z[j] - z_c) * (V * R[2,1] - W * R[1,1])) / W**2 # omega
+                A[2*j+1,4] = - c * ((X[j] - x_c) * (W * np.sin(phi) * np.sin(kappa) - V * np.cos(phi)) + 
+                                  (Y[j] - y_c) * (- W * np.sin(omega) * np.cos(phi) * np.sin(kappa) - V * np.sin(omega) * np.sin(phi)) + 
+                                  (Z[j] - z_c) * (W * np.cos(omega) * np.cos(phi) * np.cos(kappa) + V * np.cos(omega) * np.sin(phi))) / W**2 #phi
+                A[2*j+1,5] = - c * U / W # kappa
+            
+            # print(P)  
+            H = A.T @ P @ A
+            g = A.T @ P @ w
+            C = np.linalg.inv(H)
+            delta = -C @ g
+            
+            
+            print(f"the {i+1}th iteration:\n")
+            # Updata params
+            x_c_new = x_c + delta[0]
+            y_c_new = y_c + delta[1]
+            z_c_new = z_c + delta[2]
+            omega_new = np.rad2deg(omega + delta[3])
+            phi_new = np.rad2deg(phi + delta[4])
+            kappa_new = np.rad2deg(kappa + delta[5])
+            params_df = pd.DataFrame(
+                {'Parameters':[x_c_new, y_c_new, z_c_new, omega_new, phi_new, kappa_new],
+                'delta':delta
+                }, index=['xc (m)', 'yc (m)', 'zc (m)', 'omega (deg)', 'phi (deg)', 'kappa (deg)']
+            )
+            print('Parameters and delta:\n', params_df)
+            
+            A_df = pd.DataFrame(data=A, columns=['xc', 'yc', 'zc', 'omega', 'phi', 'kappa'])
+            w_df = pd.DataFrame(data=w, columns=['w vector (mm)'])
+            print("A matrix:\n", A_df)
+            print('w matrix:\n', w_df)
+            
+            # Compute correlation matrix
+            diag_std = np.sqrt(np.diag(C))
+            correlation_matrix = C / np.outer(diag_std, diag_std)
+            C_df = pd.DataFrame(correlation_matrix, columns=['xc', 'yc', 'zc', 'omega', 'phi', 'kappa'], index=['xc', 'yc', 'zc', 'omega', 'phi', 'kappa'])
+            print('Correlation matrix:\n', C_df)
+            
+            # Compute redundancy number
+            redundancy = (i+1) * 2 - 6
+            residual = w.reshape(4,2)
+            RMSE_x = np.sqrt((residual[:,0] ** 2).mean())
+            RMSE_y = np.sqrt((residual[:,1] ** 2).mean())
+            if redundancy != 0:
+                varFactor = 1 / redundancy * np.sum(w**2)
+            else:
+                varFactor = np.nan
+            other_df = pd.DataFrame(data=[RMSE_x, RMSE_y, redundancy, varFactor], index=['RMSE_x (mm)', 'RMSE_y (mm)', 'Redundancy', 'Variance factor'])
+            print('Other quantities:\n', other_df)
+            
+            
+            # Check tolerance
+            if abs(x_c_new - x_c) < tol_coords and abs(y_c_new - y_c) < tol_coords and abs(z_c_new - z_c) < tol_coords and abs(omega_new - omega0) < tol_tilt and abs(phi_new - phi0) < tol_tilt and abs(kappa_new - kappa0) < tol_k:
+                break
+            
+            x_c, y_c, z_c, omega0, phi0, kappa0 = x_c_new, y_c_new, z_c_new, omega_new, phi_new, kappa_new
+    
+    
+    params_df = pd.DataFrame(
+                {'Parameters':[x_c, y_c, z_c, omega0, phi0, kappa0]
+                }, index=['xc (m)', 'yc (m)', 'zc (m)', 'omega (deg)', 'phi (deg)', 'kappa (deg)']
+            )
+            
+    return params_df
+
+# Use test data to check
+test_EOPs = resection(test_Resction, sigma_test, c_test, test_initial, tolerance_test)
+print(test_EOPs)
+
+                
+
+            
