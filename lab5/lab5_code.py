@@ -1064,7 +1064,7 @@ def initial_value_EOPs(points, c):
         
     params = A_T_A_inv @ A_T_l
     a, b, dx, dy = params
-    k = np.atan(b/a)
+    k = np.arctan2(b,a)
     k = np.rad2deg(k)
     x0 = dx
     y0 = dy
@@ -1168,7 +1168,7 @@ def resection(points, sigma, c, initials, tolerance):
     else:
         P = 1/(sigma**2) * P
     
-    iter = 100    
+    iter = 100  
     # Set iteration loop
     for i in range(iter):
         # Set up design matrix and misclosure matrix
@@ -1248,6 +1248,11 @@ def resection(points, sigma, c, initials, tolerance):
     C_df = pd.DataFrame(correlation_matrix, columns=['xc', 'yc', 'zc', 'omega', 'phi', 'kappa'], index=['xc', 'yc', 'zc', 'omega', 'phi', 'kappa'])
     print('Correlation matrix:\n', C_df)
     
+    # Compute STD
+    std = np.sqrt(np.diag(C))
+    std_df = pd.DataFrame(std, index=['xc (m)', 'yc (m)', 'zc (m)', 'omega (deg)', 'phi (deg)', 'kappa (deg)'], columns=['STD'])
+    print("STD is:\n", std_df)
+
     # Compute redundancy number
     redundancy = 2 * len(x) - 6
     residual = w.reshape(4,2)
@@ -1429,7 +1434,7 @@ def intersection(points, sigma, c, left_EOPs, right_EOPs, initials, tolerance):
     # Set points loop
     for i in range(len(xl)):
         print(f'the {i+1}th point:\n')
-        iter = 100
+        iter = 4
         for j in range(iter):
             # Set up design matrix and misclosure matrix
             A = np.zeros((4, 3))
@@ -1510,6 +1515,11 @@ def intersection(points, sigma, c, left_EOPs, right_EOPs, initials, tolerance):
         df_R = pd.DataFrame(diagonal_reshape, index=['x_left', 'y_left', 'x_right', 'y_right'])
         df_R.loc['Total'] = df_R.sum()
         
+        # Compute STD
+        std = np.sqrt(np.diag(C_x))
+        std_df = pd.DataFrame(std, index=['xc (m)', 'yc (m)', 'zc (m)'], columns=['STD'])
+        print("STD is:\n", std_df)
+
         # Store redundancy number for the current point
         redundancy_df[i+1] = diagonal
         print("Redundancy number for each coord:\n", redundancy_df)
@@ -1527,3 +1537,19 @@ print(test_IOPs)
 sigma = [rmse_x_27, rmse_y_27, rmse_x_28, rmse_y_28]
 tennis_IOPS = intersection(tennis_corrected, sigma, c, left_EOPs, right_EOPs, tennis_initial_IOPs, tolerance_right)
 print(tennis_IOPS)
+
+# Define a function to compute residuals
+def height_residual(IOPs):
+    Z = IOPs.iloc[:,2]
+    mean_Z = Z.mean()
+    residual = Z - mean_Z
+    rmse = np.sqrt((residual ** 2).mean())
+    
+    residual.loc['RMSE'] = [rmse]
+    
+    return residual
+
+# Compute RMSE for tennis court
+tennis_RMSE = height_residual(tennis_IOPS)
+print('Residuals and RMSE for lab points:\n', tennis_RMSE)
+    
