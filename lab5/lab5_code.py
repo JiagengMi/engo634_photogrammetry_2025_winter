@@ -18,7 +18,7 @@ fiducial_digital_27 = pd.DataFrame(data=[
     [19666,-10376.5],
     [10253,-966.5],
     [10253.25,-19787.75]
-], columns=['x(mm)', 'y(mm)'], index=['1', '2', '3', '4', '5', '6', '7', '8'])
+], columns=['x(pixel)', 'y(pixel)'], index=['1', '2', '3', '4', '5', '6', '7', '8'])
 
 fiducial_digital_28 = pd.DataFrame(data=[
     [1345.25,-19285],
@@ -29,7 +29,7 @@ fiducial_digital_28 = pd.DataFrame(data=[
     [19672.25,-10390],
     [10267.25,-972],
     [10253.25,-19794.5]
-], columns=['x(mm)', 'y(mm)'], index=['1', '2', '3', '4', '5', '6', '7', '8'])
+], columns=['x(pixel)', 'y(pixel)'], index=['1', '2', '3', '4', '5', '6', '7', '8'])
 
 fiducial_true = pd.DataFrame(data=[
     [-105.997,-105.995],
@@ -40,7 +40,7 @@ fiducial_true = pd.DataFrame(data=[
     [112.006,0.007],
     [0.005,112.007],
     [0.002,-111.998]
-], columns=['x(mm)', 'y(mm)'], index=['1', '2', '3', '4', '5', '6', '7', '8'])
+], columns=['x(pixel)', 'y(pixel)'], index=['1', '2', '3', '4', '5', '6', '7', '8'])
 
 # tie points
 tie_digital_27 = pd.DataFrame(data=[
@@ -50,7 +50,7 @@ tie_digital_27 = pd.DataFrame(data=[
     [19133.75,-16965],
     [9192.25,-3894.5],
     [18587.5,-4037.75]
-], columns=['x(mm)', 'y(mm)'], index=['1', '2', '3', '4', '5', '6'])
+], columns=['x(pixel)', 'y(pixel)'], index=['1', '2', '3', '4', '5', '6'])
 
 tie_digital_28 = pd.DataFrame(data=[
     [1346.75,-10810],
@@ -59,7 +59,7 @@ tie_digital_28 = pd.DataFrame(data=[
     [11398.5,-16602.25],
     [1197,-3730.5],
     [10654,-3575]
-], columns=['x(mm)', 'y(mm)'], index=['1', '2', '3', '4', '5', '6'])
+], columns=['x(pixel)', 'y(pixel)'], index=['1', '2', '3', '4', '5', '6'])
 
 # Control points
 control_digital_27 = pd.DataFrame(data=[
@@ -68,7 +68,7 @@ control_digital_27 = pd.DataFrame(data=[
     [17841.25,-18026.25],
     [9612.25,-14502.25],
     [11779.75,-1174]
-], columns=['x(mm)', 'y(mm)'], index=['102', '104', '105', '202', '200'])
+], columns=['x(pixel)', 'y(pixel)'], index=['102', '104', '105', '202', '200'])
 
 control_digital_28 = pd.DataFrame(data=[
     [2275.25,-10786],
@@ -76,20 +76,20 @@ control_digital_28 = pd.DataFrame(data=[
     [10136.5,-17687.75],
     [1949.5,-14416.75],
     [3724.75,-853.25]
-], columns=['x(mm)', 'y(mm)'], index=['102', '104', '105', '202', '200'])
+], columns=['x(pixel)', 'y(pixel)'], index=['102', '104', '105', '202', '200'])
 
 # Check points
 check_digital_27 = pd.DataFrame(data=[
     [14685.75,-18204.75],
     [14006.25,-9748.5],
     [9460.25,-2291.5]
-], columns=['x(mm)', 'y(mm)'], index=['203', '201', '100'])
+], columns=['x(pixel)', 'y(pixel)'], index=['203', '201', '100'])
 
 check_digital_28 = pd.DataFrame(data=[
     [6984,-17948.75],
     [6158.75,-9527.5],
     [1411,-2079.75]
-], columns=['x(mm)', 'y(mm)'], index=['203', '201', '100'])
+], columns=['x(pixel)', 'y(pixel)'], index=['203', '201', '100'])
 
 # Estimate the linear parameters and derive the non-linear parameters for the 2D affine transformation
 def affine_transformation_ls(comparator_coords, reseau_coords):
@@ -1024,7 +1024,7 @@ print('Lab5: To perform single photo resection (SPR) and space intersection as p
 # test_points_copy, check_points_copy, control_points_copy
 
 # Define a function to get initial values
-def initial_value(points, c):
+def initial_value_EOPs(points, c):
     """_summary_
 
     Args:
@@ -1033,13 +1033,9 @@ def initial_value(points, c):
     """
     # Get data from points
     x = points.iloc[:, 0]
-    x_arr = np.array(x)
     y = points.iloc[:, 1]
-    y_arr = np.array(y)
     X = points.iloc[:, 2]
-    X_arr = np.array(X)
     Y = points.iloc[:, 3]
-    Y_arr = np.array(Y)
     Z = points.iloc[:, 4]
     Z_arr = np.array(Z)
     print(points)
@@ -1083,17 +1079,17 @@ def initial_value(points, c):
 
 # Get Initial values for left image
 left_Resction = control_points_copy.loc[['104', '105', '202', '200'], ['xl (mm)', 'yl (mm)', 'X (m)', 'Y (m)', 'Z (m)']]
-left_initial, scale_left = initial_value(left_Resction, c)
+left_initial, scale_left = initial_value_EOPs(left_Resction, c)
 print("Initial values for left image resction is:\n", left_initial)
 
 # Get Initial values for right image
 right_Resction = control_points_copy.loc[['104', '105', '202', '200'], ['xr (mm)', 'yr (mm)', 'X (m)', 'Y (m)', 'Z (m)']]
-right_initial, scale_right = initial_value(right_Resction, c)
-print("Initial values for left image resction is:\n", right_initial)
+right_initial, scale_right = initial_value_EOPs(right_Resction, c)
+print("Initial values for right image resction is:\n", right_initial)
 
 # Get Initial values for test data
 test_Resction = test_points_copy.loc[['30', '40', '50', '112'], ['xl (mm)', 'yl (mm)', 'X (m)', 'Y (m)', 'Z (m)']]
-test_initial, scale_test = initial_value(test_Resction, c_test)
+test_initial, scale_test = initial_value_EOPs(test_Resction, c_test)
 print("Initial values for test resction is:\n", test_initial)
 
 # Define a function to get tolerance
@@ -1121,18 +1117,18 @@ def tolerance(sigma, scale, side_length_x, side_length_y, c):
 side_length_x = 212
 side_length_y = 212
 tolerance_left = tolerance(rmse_x_27, scale_left, side_length_x, side_length_y, c)
-print("Initial values for test resction is:\n", tolerance_left)
+print("Tolerance for left image is:\n", tolerance_left)
 
 # Get tolerances for right image
 tolerance_right = tolerance(rmse_x_28, scale_right, side_length_x, side_length_y, c)
-print(tolerance_right)
+print("Tolerance for right image is:\n", tolerance_right)
 
 # Get tolerances for test data
 sigma_test = 0.015 # unit is mm
 side_length_x_test = 229 # unit is mm
 side_length_y_test = 229
 tolerance_test = tolerance(sigma_test, scale_test, side_length_x_test, side_length_y_test, c_test)
-print(tolerance_test)
+print("Tolerance for test data is:\n", tolerance_test)
 
 # Define a function to calculate EOPs
 def resection(points, sigma, c, initials, tolerance):
@@ -1167,13 +1163,14 @@ def resection(points, sigma, c, initials, tolerance):
     P = np.eye(2 * len(x))
     if isinstance(sigma, list):
         for i in range(len(x)):
-            P[2*i, 2*i] = sigma[0]
-            P[2*i+1, 2*i+1] = sigma[1]
+            P[2*i, 2*i] = 1/(sigma[0]**2)
+            P[2*i+1, 2*i+1] = 1/(sigma[1]**2)
     else:
         P = 1/(sigma**2) * P
-        
+    
+    iter = 100    
     # Set iteration loop
-    for i in range(len(x)):
+    for i in range(iter):
         # Set up design matrix and misclosure matrix
         A = np.zeros((2 * len(x), 6))
         w = np.zeros(2 * len(x))
@@ -1284,6 +1281,249 @@ print(right_EOPs)
 test_EOPs = resection(test_Resction, sigma_test, c_test, test_initial, tolerance_test)
 print(test_EOPs)
 
-                
 
+
+# Part B
+
+# Conduct measurements
+# Get origin data from excel
+file_path = 'chosen points.xlsx'
+tennis_court_27 = pd.read_excel(file_path, sheet_name=0, usecols="F,G", header=None, skiprows=3, nrows=16)
+tennis_court_27.columns = ['xl (pixel)', 'yl (pixel)']
+tennis_court_27.index = range(1, 17)
+
+tennis_court_28 = pd.read_excel(file_path, sheet_name=0, usecols="M,N", header=None, skiprows=3, nrows=16)
+tennis_court_28.columns = ['xr (pixel)', 'yr (pixel)']
+tennis_court_28.index = range(1, 17)
+
+# Refine data
+tennis_true_27 = to_fiducial_system(params1, tennis_court_27)
+tennis_true_28 = to_fiducial_system(params2, tennis_court_28)
+
+tennis_27_corrected = systematic_error(tennis_true_27, principal_offset, radial_distortion, decentering_distortion, atmospheric_refraction)
+tennis_28_corrected = systematic_error(tennis_true_28, principal_offset, radial_distortion, decentering_distortion, atmospheric_refraction)
+tennis_corrected = pd.concat([tennis_27_corrected, tennis_28_corrected], axis=1)
+print('correct tennis points coords:\n', tennis_corrected)
+
+# Intersect
+# Define a function to get initial values for IOPs
+def initial_value_IOPs(points, left_EOPs, right_EOPs, c):
+    
+    # Get coords from points
+    xl = np.array(points.iloc[:,0])
+    yl = np.array(points.iloc[:,1])
+    xr = np.array(points.iloc[:,2])
+    yr = np.array(points.iloc[:,3])
+    
+    # Get EOPs
+    xc_l, yc_l, zc_l, omega_l, phi_l, kappa_l = left_EOPs.iloc[:,0]
+    xc_r, yc_r, zc_r, omega_r, phi_r, kappa_r = right_EOPs.iloc[:,0]
+    
+    # Compute rotation matrix
+    R_l = compute_rotation_matrix(omega_l, phi_l, kappa_l)
+    R_r = compute_rotation_matrix(omega_r, phi_r, kappa_r)
+    
+    # Create a list to store the parameters for each point
+    params_list = []
+    
+    # Compute Initial values for each point
+    for i in range(len(xl)):
+        # set up design matrix A and observation vector l
+        A = np.zeros((4 * len(xl), 3))
+        l = np.zeros(4 * len(xl))
+        
+        # Fill A and l
+        A[4*i, 0] = xl[i] * R_l[2,0] + c * R_l[0,0]
+        A[4*i, 1] = xl[i] * R_l[2,1] + c * R_l[0,1]
+        A[4*i, 2] = xl[i] * R_l[2,2] + c * R_l[0,2]
+        l[4*i] = A[4*i, 0] * xc_l + A[4*i, 1] * yc_l + A[4*i, 2] * zc_l
+        
+        A[4*i+1, 0] = yl[i] * R_l[2,0] + c * R_l[1,0]
+        A[4*i+1, 1] = yl[i] * R_l[2,1] + c * R_l[1,1]
+        A[4*i+1, 2] = yl[i] * R_l[2,2] + c * R_l[1,2]
+        l[4*i+1] = A[4*i+1, 0] * xc_l + A[4*i+1, 1] * yc_l + A[4*i+1, 2] * zc_l
+        
+        A[4*i+2, 0] = xr[i] * R_r[2,0] + c * R_r[0,0]
+        A[4*i+2, 1] = xr[i] * R_r[2,1] + c * R_r[0,1]
+        A[4*i+2, 2] = xr[i] * R_r[2,2] + c * R_r[0,2]
+        l[4*i+2] = A[4*i+2, 0] * xc_r + A[4*i+2, 1] * yc_r + A[4*i+2, 2] * zc_r
+        
+        A[4*i+3, 0] = yr[i] * R_r[2,0] + c * R_r[1,0]
+        A[4*i+3, 1] = yr[i] * R_r[2,1] + c * R_r[1,1]
+        A[4*i+3, 2] = yr[i] * R_r[2,2] + c * R_r[1,2]
+        l[4*i+3] = A[4*i+3, 0] * xc_r + A[4*i+3, 1] * yc_r + A[4*i+3, 2] * zc_r
+        
+        A_T_A = A.T @ A
+        A_T_l = A.T @ l
+        A_T_A_inv = np.linalg.inv(A_T_A)
             
+        params = A_T_A_inv @ A_T_l
+        
+        # Append the result as a series with the point index as the column name
+        params_list.append(params)
+    
+    # Convert the list of parameters into a DataFrame
+    # Each column corresponds to a point (based on the index of points)
+    params_df = pd.DataFrame(data=np.column_stack(params_list), 
+                             index=['X0', 'Y0', 'Z0'], 
+                             columns=points.index)
+    
+    return params_df
+
+# Use test data to check
+test_Intersection = test_points_copy.loc[['72', '127'], ['xl (mm)', 'yl (mm)','xr (mm)', 'yr (mm)', 'X (m)', 'Y (m)', 'Z (m)']]
+testEOPs_left = pd.DataFrame(data=[6349.488,3965.252, 1458.095, 0.9885, 0.4071, -18.9049], index=['xc (m)', 'yc (m)', 'zc (m)', 'omega (deg)', 'phi (deg)', 'kappa (deg)'])
+testEOPs_right = pd.DataFrame(data=[7021.897,3775.68, 1466.702, 1.8734, 1.6751, -15.7481], index=['xc (m)', 'yc (m)', 'zc (m)', 'omega (deg)', 'phi (deg)', 'kappa (deg)'])
+test_initial_IOPs= initial_value_IOPs(test_Intersection, testEOPs_left, testEOPs_right, c_test)
+print("Initial values for test intersection is:\n", test_initial_IOPs)
+
+# Get initial IOPs for tennis court data
+tennis_initial_IOPs = initial_value_IOPs(tennis_corrected, left_EOPs, right_EOPs, c)
+print("Initial values for lab intersection is:\n", tennis_initial_IOPs)
+
+# Define a function to calculate IOPs
+def intersection(points, sigma, c, left_EOPs, right_EOPs, initials, tolerance):
+    
+
+    # Print the title
+    frame = inspect.currentframe()
+    caller_locals = frame.f_back.f_locals  # Get the local variables from the caller's frame
+    for var_name, var_value in caller_locals.items():
+        if var_value is points:  # Match the value passed with the name
+            print(f"Results for {var_name}:\n")
+            break
+    
+    # Observations
+    xl = np.array(points.iloc[:, 0])
+    yl = np.array(points.iloc[:, 1])
+    xr = np.array(points.iloc[:, 2])
+    yr = np.array(points.iloc[:, 3])
+    
+    # Initial values
+    X0, Y0, Z0 = initials.iloc[:,0]
+    tol_coords, tol_tilt, tol_k = tolerance.iloc[:,0]
+    
+    # Get EOPs
+    xc_l, yc_l, zc_l, omega_l, phi_l, kappa_l = left_EOPs.iloc[:,0]
+    xc_r, yc_r, zc_r, omega_r, phi_r, kappa_r = right_EOPs.iloc[:,0]
+    
+    # Compute rotation matrix
+    R_l = compute_rotation_matrix(omega_l, phi_l, kappa_l)
+    R_r = compute_rotation_matrix(omega_r, phi_r, kappa_r)
+    
+    # Set weight matrix P
+    P = np.eye(4)
+    if isinstance(sigma, list):
+        P[0,0] = 1/(sigma[0]**2) # rmse_x_left
+        P[1,1] = 1/(sigma[1]**2) # rmse_y_left
+        P[2,2] = 1/(sigma[2]**2) # rmse_x_right
+        P[3,3] = 1/(sigma[3]**2) # rmse_y_right
+            
+    else:
+        P = 1/(sigma**2) * P
+        
+    # Create empty DataFrames to store results
+    redundancy_df = pd.DataFrame(columns=[i+1 for i in range(len(xl))], index=['x_left', 'y_left', 'x_right', 'y_right'])
+    IOPs_df = pd.DataFrame(columns=['X (m)', 'Y (m)', 'Z (m)'])
+        
+    # Set points loop
+    for i in range(len(xl)):
+        print(f'the {i+1}th point:\n')
+        iter = 100
+        for j in range(iter):
+            # Set up design matrix and misclosure matrix
+            A = np.zeros((4, 3))
+            w = np.zeros(4)
+            
+            # Fill A and w
+            # Compute UVM for each image
+            Ul = R_l[0,0] * (X0 - xc_l) + R_l[0,1] * (Y0 - yc_l) + R_l[0,2] * (Z0 - zc_l)
+            Vl = R_l[1,0] * (X0 - xc_l) + R_l[1,1] * (Y0 - yc_l) + R_l[1,2] * (Z0 - zc_l)
+            Wl = R_l[2,0] * (X0 - xc_l) + R_l[2,1] * (Y0 - yc_l) + R_l[2,2] * (Z0 - zc_l)
+            
+            Ur = R_r[0,0] * (X0 - xc_r) + R_r[0,1] * (Y0 - yc_r) + R_r[0,2] * (Z0 - zc_r)
+            Vr = R_r[1,0] * (X0 - xc_r) + R_r[1,1] * (Y0 - yc_r) + R_r[1,2] * (Z0 - zc_r)
+            Wr = R_r[2,0] * (X0 - xc_r) + R_r[2,1] * (Y0 - yc_r) + R_r[2,2] * (Z0 - zc_r)
+            
+            # Compute w
+            w[0] =  - c * Ul / Wl - xl[i]
+            w[1] =  - c * Vl / Wl - yl[i]
+            w[2] =  - c * Ur / Wr - xr[i]
+            w[3] =  - c * Vr / Wr - yr[i]
+            
+            # Compute A
+            A[0,0] = c * (Ul * R_l[2,0] - Wl * R_l[0,0]) / Wl**2 # x
+            A[0,1] = c * (Ul * R_l[2,1] - Wl * R_l[0,1]) / Wl**2 # y
+            A[0,2] = c * (Ul * R_l[2,2] - Wl * R_l[0,2]) / Wl**2 # z
+
+            A[1,0] = c * (Vl * R_l[2,0] - Wl * R_l[1,0]) / Wl**2
+            A[1,1] = c * (Vl * R_l[2,1] - Wl * R_l[1,1]) / Wl**2
+            A[1,2] = c * (Vl * R_l[2,2] - Wl * R_l[1,2]) / Wl**2
+            
+            A[2,0] = c * (Ur * R_r[2,0] - Wr * R_r[0,0]) / Wr**2 # x
+            A[2,1] = c * (Ur * R_r[2,1] - Wr * R_r[0,1]) / Wr**2 # y
+            A[2,2] = c * (Ur * R_r[2,2] - Wr * R_r[0,2]) / Wr**2 # z
+
+            A[3,0] = c * (Vr * R_r[2,0] - Wr * R_r[1,0]) / Wr**2
+            A[3,1] = c * (Vr * R_r[2,1] - Wr * R_r[1,1]) / Wr**2
+            A[3,2] = c * (Vr * R_r[2,2] - Wr * R_r[1,2]) / Wr**2
+            
+            H = A.T @ P @ A
+            g = A.T @ P @ w
+            C = np.linalg.inv(H)
+            delta = -C @ g
+
+            # Updata params
+            X0_new = X0 + delta[0]
+            Y0_new = Y0 + delta[1]
+            Z0_new = Z0 + delta[2]
+
+            if len(xl) < 3:
+                print(f"the {j+1}th iteration:\n")
+                A_df = pd.DataFrame(data=A, columns=['X0', 'Y0', 'Z0'], index=['xl', 'yl', 'xr', 'yr'])
+                w_df = pd.DataFrame(data=w, columns=['w vector (mm)'])
+                print("A matrix:\n", A_df)
+                print('w matrix:\n', w_df)
+            
+            # Check tolerance
+            error_coords = np.sqrt((X0_new - X0)**2+(Y0_new - Y0)**2+(Z0_new - Z0)**2)
+            if error_coords < tol_coords:
+                break
+        
+            X0, Y0, Z0 = X0_new, Y0_new, Z0_new
+            
+        # Compute residual
+        residual = w.reshape(2,2)
+        RMSE_x = np.sqrt((residual[:,0] ** 2).mean())
+        RMSE_y = np.sqrt((residual[:,1] ** 2).mean())
+        rmse_row = np.array([RMSE_x, RMSE_y])
+        residual_with_rmse = np.vstack([residual, rmse_row])
+        residual_df = pd.DataFrame(data=residual_with_rmse, columns=['residual_x (mm)', 'residual_y (mm)'])
+        print('Residual vector:\n', residual_df)
+        
+        # Compute redundancy number
+        I = np.eye(4)
+        C_x = np.linalg.inv(H)
+        R = I - A @ C_x @ A.T @ P
+        diagonal = [R[i, i] for i in range(4)]
+        diagonal_reshape = np.array(diagonal).reshape(-1,1)
+        df_R = pd.DataFrame(diagonal_reshape, index=['x_left', 'y_left', 'x_right', 'y_right'])
+        df_R.loc['Total'] = df_R.sum()
+        
+        # Store redundancy number for the current point
+        redundancy_df[i+1] = diagonal
+        print("Redundancy number for each coord:\n", redundancy_df)
+            
+        # Store the IOPs for the current point
+        IOPs_df.loc[i+1] = [X0, Y0, Z0]
+        print("IOPs:\n", IOPs_df)  
+    return IOPs_df
+
+# Use test data to check
+test_IOPs = intersection(test_Intersection, sigma_test, c_test, testEOPs_left, testEOPs_right, test_initial_IOPs, tolerance_test)
+print(test_IOPs)
+
+# Compute IOPs for tennis court
+sigma = [rmse_x_27, rmse_y_27, rmse_x_28, rmse_y_28]
+tennis_IOPS = intersection(tennis_corrected, sigma, c, left_EOPs, right_EOPs, tennis_initial_IOPs, tolerance_right)
+print(tennis_IOPS)
