@@ -1544,12 +1544,31 @@ def height_residual(IOPs):
     mean_Z = Z.mean()
     residual = Z - mean_Z
     rmse = np.sqrt((residual ** 2).mean())
+    residual_df = pd.DataFrame(data=residual, index=IOPs.index)
+    residual_df.loc['RMSE'] = [rmse]
     
-    residual.loc['RMSE'] = [rmse]
-    
-    return residual
+    return residual_df
 
 # Compute RMSE for tennis court
 tennis_RMSE = height_residual(tennis_IOPS)
 print('Residuals and RMSE for lab points:\n', tennis_RMSE)
+
+# Create a quiver plot
+tennis_residual = tennis_RMSE.iloc[:16]
+
+x = np.array(tennis_IOPS.iloc[:,0]) 
+y = np.array(tennis_IOPS.iloc[:,1]) 
+z = np.array(tennis_residual)
+# X, Y = np.meshgrid(x, y)
+
+u = np.cos(np.linspace(0, 2*np.pi, len(x)))
+v = np.sin(np.linspace(0, 2*np.pi, len(y)))
+
+plt.figure(figsize=(8, 6))
+plt.quiver(x, y, u, v, scale=20, color='b')
+plt.colorbar(label='Z Residuals')
+plt.xlabel('X Coordinate (m)')
+plt.ylabel('Y Coordinate (m)')
+plt.title('Quiver Plot with Z Residuals')
+plt.show()
     
